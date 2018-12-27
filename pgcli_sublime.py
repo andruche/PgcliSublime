@@ -89,6 +89,11 @@ def plugin_unloaded():
 
 
 class PgcliPlugin(sublime_plugin.EventListener):
+    def on_close(self, view):
+        executor = executors.pop(view.id(), None)
+        if executor:
+            executor.conn.close()
+
     def on_post_save_async(self, view):
         check_pgcli(view)
 
@@ -101,8 +106,7 @@ class PgcliPlugin(sublime_plugin.EventListener):
         sublime.set_timeout_async(lambda: check_pgcli(view), 0)
 
     def on_query_completions(self, view, prefix, locations):
-        autocomplete_exclusions = settings.get('autocomplete_exclusions')
-        for pattern in settings.get('autocomplete_exclusions'):
+        for pattern in settings.get('autocomplete_exclusions', []):
             if view.file_name() and re.match(pattern, view.file_name()):
                 logger.debug('File excluded from autocompletion')
                 return
@@ -155,7 +159,10 @@ class PgcliSwitchConnectionStringCommand(sublime_plugin.TextCommand):
             if i == -1:
                 return
             self.view.settings().set('pgcli_url', urls[i])
-            del self.view.pgcli_executor
+            executor = executors.pop(self.view.id(), None)
+            if executor:
+                executor.conn.close()
+
             check_pgcli(self.view)
 
         self.view.window().show_quick_panel(urls, callback)
@@ -372,8 +379,8 @@ def check_pgcli(view):
         return
 
     with executor_lock:
-        buffer_id = view.buffer_id()
-        if buffer_id not in executors:
+        view_id = view.id()
+        if view_id not in executors:
             url = get(view, 'pgcli_url')
 
             if not url:
@@ -394,7 +401,7 @@ def check_pgcli(view):
                     status = 'ERROR CONNECTING TO {}'.format(url)
                     view.set_status('pgcli', status)
 
-                executors[buffer_id] = executor
+                executors[view_id] = executor
 
                 # Make sure we have a completer for the corresponding url
                 with completer_lock:
@@ -461,7 +468,7 @@ def run_sqls_async(view, sqls):
 
 
 def run_sql_async(view, sql, panel):
-    executor = executors[view.buffer_id()]
+    executor = executors[view.id()]
     logger.debug('Command: PgcliExecute: %r', sql)
     save_mode = get(view, 'pgcli_save_on_run_query_mode')
 
