@@ -74,6 +74,9 @@ def plugin_loaded():
     global psycopg2
     import psycopg2
 
+    global ext
+    import psycopg2.extensions as ext
+
     global sqlparse
     import sqlparse
 
@@ -215,11 +218,22 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
 
     def run(self, edit, url):
         logger.debug('PgcliRunCurrentOnCommand')
+        panel = get_output_panel(self.view)
 
-        self.view.settings().set('pgcli_url', url)
-        executor = executors.pop(self.view.id(), None)
-        if executor:
-            executor.conn.close()
+        if get(self.view, 'pgcli_url') != url:
+            executor = executors.get(self.view.id(), None)
+            if executor:
+                if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
+                    out = 'connection processing sql-command; you need cancel it before\n\n'
+                    panel.run_command('append', {'characters': out})
+                    return
+                if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
+                    out = 'connection in trunsaction; you need commit/rollback before\n\n'
+                    panel.run_command('append', {'characters': out})
+                    return
+                del executors[self.view.id()]
+                executor.conn.close()
+            self.view.settings().set('pgcli_url', url)
 
         check_pgcli(self.view)
 
