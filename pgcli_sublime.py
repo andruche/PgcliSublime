@@ -7,6 +7,7 @@ import site
 import traceback
 import queue
 import datetime
+import time
 import re
 from urllib.parse import urlparse
 from threading import Lock, Thread
@@ -474,17 +475,18 @@ def run_sql_async(view, sql, panel):
 
     # Make sure the output panel is visiblle
     sublime.active_window().run_command('pgcli_show_output_panel')
-    # Put a leading datetime
-    datestr = str(datetime.datetime.now()) + '\n\n'
-    panel.run_command('append', {'characters': datestr, 'pos': 0})
+    start = time.time()
     results = executor.run(sql, pgspecial=special)
     settings = OutputSettings('psql', "", "", "NULL", False, None)
     try:
         for (title, cur, headers, status, _, _) in results:
+            status = None if status == 'SELECT 1' else status
+            out = 'done in {:.6} ms\n'.format((time.time() - start) * 1000)
+            panel.run_command('append', { 'characters': out, 'pos': 0 })
             fmt = format_output(title, cur, headers, status, settings)
-            out = ('\n'.join(fmt)
-                   + '\n\n' + str(datetime.datetime.now()) + '\n\n')
-            panel.run_command('append', {'characters': out})
+            out = '\n'.join(fmt) + '\n\n'
+            panel.run_command('append', { 'characters': out})
+            start = time.time()
     except psycopg2.DatabaseError as e:
         success = False
         out = str(e) + '\n\n' + str(datetime.datetime.now()) + '\n\n'
