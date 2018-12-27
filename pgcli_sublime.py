@@ -240,6 +240,29 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
         t.start()
 
 
+class PgcliRunMacrosCommand(sublime_plugin.TextCommand):
+    def description(self):
+        return 'Run the macros with current selection'
+
+    def run(self, edit, macros):
+        logger.debug('PgcliRunMacrosCommand')
+        check_pgcli(self.view)
+
+        # Note that there can be multiple selections
+        sel = self.view.sel()
+        sql = [macros % self.view.substr(reg) for reg in sel]
+
+        if not sql:
+            return
+
+        # Run the sql in a separate thread
+        t = Thread(target=run_sqls_async,
+                   args=(self.view, sql),
+                   name='run_sqls_async')
+        t.setDaemon(True)
+        t.start()
+
+
 class PgcliDescribeTable(sublime_plugin.TextCommand):
     def description(self):
         return 'Describe table'
