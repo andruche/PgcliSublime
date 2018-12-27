@@ -209,6 +209,37 @@ class PgcliRunCurrentCommand(sublime_plugin.TextCommand):
         t.start()
 
 
+class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
+    def description(self):
+        return 'Run the current selection on defined connection'
+
+    def run(self, edit, url):
+        logger.debug('PgcliRunCurrentOnCommand')
+
+        self.view.settings().set('pgcli_url', url)
+        executor = executors.pop(self.view.id(), None)
+        if executor:
+            executor.conn.close()
+
+        check_pgcli(self.view)
+
+        # Note that there can be multiple selections
+        sel = self.view.sel()
+        contents = [self.view.substr(reg) for reg in sel]
+        sql = '\n'.join(contents)
+
+        if not sql and len(sel) == 1:
+            # Nothing highlighted - find the current query
+            sql, _ = get_current_query(self.view)
+
+        # Run the sql in a separate thread
+        t = Thread(target=run_sqls_async,
+                   args=(self.view, [sql]),
+                   name='run_sqls_async')
+        t.setDaemon(True)
+        t.start()
+
+
 class PgcliDescribeTable(sublime_plugin.TextCommand):
     def description(self):
         return 'Describe table'
