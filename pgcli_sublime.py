@@ -68,6 +68,9 @@ def plugin_loaded():
     global Document
     from prompt_toolkit.document import Document
 
+    global fragment_list_to_text
+    from prompt_toolkit.formatted_text import fragment_list_to_text
+
     global format_output
     from pgcli.main import format_output
 
@@ -140,8 +143,10 @@ class PgcliPlugin(sublime_plugin.EventListener):
             logger.debug('No completions found')
             return []
 
-        comps = [('{}\t{}'.format(c.display, c.display_meta), c.text)
-                    for c in comps]
+        comps = [('{}\t{}'.format(fragment_list_to_text(c.display),
+                                  fragment_list_to_text(c.display_meta)),
+                  c.text)
+                 for c in comps]
         logger.debug('Found completions: %r', comps)
 
         return comps, (sublime.INHIBIT_WORD_COMPLETIONS
@@ -574,7 +579,7 @@ def run_sql_async(view, sql, panel):
     results = executor.run(sql, pgspecial=special)
     settings = OutputSettings('psql', "", "", "NULL", False, None)
     try:
-        for (title, cur, headers, status, _, _) in results:
+        for (title, cur, headers, status, _, _, _) in results:
             status = None if status == 'SELECT 1' else status
             out = 'done in {:.6} ms\n'.format((time.time() - start) * 1000)
             panel.run_command('append', { 'characters': out, 'pos': 0 })
