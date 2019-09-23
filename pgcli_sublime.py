@@ -491,14 +491,13 @@ def check_pgcli(view):
                 try:
                     executor = new_executor(url)
                     view.set_status('pgcli', pgcli_id(executor))
+                    executors[view_id] = executor
                 except Exception:
                     logger.error('Error connecting to pgcli')
                     logger.error('traceback: %s', traceback.format_exc())
                     executor = None
                     status = 'ERROR CONNECTING TO {}'.format(url)
                     view.set_status('pgcli', status)
-
-                executors[view_id] = executor
 
                 # Make sure we have a completer for the corresponding url
                 with completer_lock:
