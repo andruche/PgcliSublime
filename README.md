@@ -73,11 +73,108 @@ python-prompt-toolkit in windows with python 3, I have a second pgcli python
 
 ### Keyboard shortcuts
 You can view the default keyboard shortcuts with 
-```Preferences | Package Settings | PgcliSublime | Key Bindings - Default```
-and the user override file:
-```Preferences | Package Settings | PgcliSublime | Key Bindings - User```.
+`Preferences | Package Settings | PgcliSublime | Key Bindings - Default`
+and the user override file: 
+`Preferences | Package Settings | PgcliSublime | Key Bindings - User`.
 Again, you can copy and paste the contents of the defaults file into the user 
 file.
+
+Default settings:
+```
+[
+    {
+        "keys":    ["alt+enter"],
+        "command": "pgcli_run_all",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["ctrl+alt+enter"],
+        "command": "pgcli_run_current",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["ctrl+shift+c"],
+        "command": "pgcli_cancel_execute",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["alt+`"],
+        "command": "pgcli_show_output_panel"
+    },
+    {
+        "keys":    ["ctrl+f12"],
+        "command": "pgcli_open_cli"
+    },
+    {
+        "keys":    ["alt+f12"],
+        "command": "pgcli_new_sublime_repl"
+    },
+    {
+        "keys":    ["ctrl+alt+shift+n"],
+        "command": "pgcli_new_sql_file"
+    },
+    {
+        "keys":    ["ctrl+alt+shift+c"],
+        "command": "pgcli_switch_connection_string"
+    },
+    {
+        "keys":    ["f1"],
+        "command": "pgcli_describe_table",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    }
+]
+```
+Example for client settings:
+```
+[
+    {
+        "keys":    ["f5"],
+        "command": "pgcli_run_current",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["f7"],
+        "command": "pgcli_explain_current",
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["ctrl+1"],
+        "command": "pgcli_run_current_on",
+        "args":    {"url": "postgresql://postgres@127.0.0.1:5432/test_db1"},
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        "keys":    ["ctrl+2"],
+        "command": "pgcli_run_current_on",
+        "args":    {"url": "postgresql://postgres@127.0.0.1:5432/test_db2"},
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        //get last 100 rows from <selected> table
+        "keys":    ["alt+f1"],
+        "command": "pgcli_run_macros",
+        "args":    {"macros": "select * from %s order by 1 desc limit 100"},
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
+        //build insert sql for <selected> table
+        "keys":    ["alt+f2"],
+        "command": "pgcli_run_macros",
+        "args": {"macros": [
+            "select format(e'INSERT INTO %%s(%%s)\n  VALUES (%%s);',   ",
+            "                           attrelid::regclass::text,      ",
+            "               string_agg(attname, ', ' order by attnum), ",
+            "               string_agg(atttypid::regtype::text,        ",
+            "                                   ', ' order by attnum)) ",
+            "  from pg_attribute                                       ",
+            " where attrelid = '%s'::regclass and                      ",
+            "       attnum > 0 and                                     ",
+            "       not attisdropped                                   ",
+            " group by attrelid                                        "] },
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    }
+]
+```
 
 ## Usage 
 

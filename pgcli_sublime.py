@@ -217,6 +217,31 @@ class PgcliRunCurrentCommand(sublime_plugin.TextCommand):
         t.start()
 
 
+class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
+    def description(self):
+        return 'Run the current selection on defined connection'
+
+    def run(self, edit):
+        logger.debug('PgcliCancelExecuteCommand')
+        panel = get_output_panel(self.view)
+
+        executor = executors.get(self.view.id(), None)
+        if executor:
+            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
+                executor.conn.cancel()
+                out = 'send cancel signal to server\n\n'
+                panel.run_command('append', {'characters': out})
+                return
+            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
+                out = 'no running commands for cancel\n'
+                out += 'but connection is "idle in trunsaction"!!!\n'
+                out += 'use commit/rollback for stop trunsaction\n\n'
+                panel.run_command('append', {'characters': out})
+                return
+        out = 'no running commands for cancel\n\n'
+        panel.run_command('append', {'characters': out})
+
+
 class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
     def description(self):
         return 'Run the current selection on defined connection'
@@ -266,6 +291,9 @@ class PgcliRunMacrosCommand(sublime_plugin.TextCommand):
     def run(self, edit, macros):
         logger.debug('PgcliRunMacrosCommand')
         check_pgcli(self.view)
+
+        if isinstance(macros, list):
+            macros = '\n'.join(macros)
 
         # Note that there can be multiple selections
         sel = self.view.sel()
