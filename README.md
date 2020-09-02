@@ -44,7 +44,7 @@ support Python 3.3.
 I have fixed incompatible code (multiple syntax errors and 
 [psycopg requires Python 3.4](https://github.com/psycopg/psycopg2/blob/master/psycopg/python.h#L38) 
 error) and built all dependensy libraries into egg-packages for Python 3.3.  
-So you can just unzip pgcli-sublime-site-packages.zip to C:\ or any ather 
+So you can just unzip pgcli-sublime-site-packages.zip to C:\ or any other 
 directory.
 
 Next, specify your default database url in the ```pgcli_url``` setting. You can 
