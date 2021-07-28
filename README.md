@@ -1,16 +1,16 @@
 # PgcliSublime
-A plugin for [Sublime Text 3](http://www.sublimetext.com/3) supporting
+A plugin for [Sublime Text 4](http://www.sublimetext.com/4) supporting
 database-aware smart autocompletion via [pgcli](http://pgcli.com)
 
 ## Requirements
-pgcli running in Python 3.3. (This is the version of python shipped with
-Sublime Text 3). I recommend installing pgcli in a virtual environment.
+pgcli running in Python 3.8. (This is the version of python shipped with
+Sublime Text 4). I recommend installing pgcli in a virtual environment.
 
 ## Installation
 Via [Package Control](https://packagecontrol.io/): 
 ```Preferences | Package Control | Install Package | PgcliSublime```
 
-Via Git: Clone this repo into a subdirectory in your ST3 /Packages directory.
+Via Git: Clone this repo into a subdirectory in your ST4 /Packages directory.
 
 ### Optional
   -  If you want to run a pgcli postgresql command line prompt directly in Sublime Text, 
@@ -29,7 +29,7 @@ Copy and paste the contents of the defaults file into the user file. You
 overwritten every time you update PgcliSublime.
 
 The most important configuration is setting up the path correctly, so the
-Sublime Text 3 python interpreter can import pgcli. If you run python 3.3 as 
+Sublime Text 4 python interpreter can import pgcli. If you run python 3.8 as
 your system-wide interpreter, and pgcli is installed in your global 
 site-packages, you don't need to do anything. If on the other hand you have
 pgcli installed in a virtual environment, the easiest thing to do is add that
@@ -37,15 +37,6 @@ virtual environment's site-packages directory to the ```pgcli_site_dirs```
 setting. Note that path strings need to be "double-quoted" and backslashes need 
 to be escaped. See below for an example configuration. NOTE: You will have to
 restart Sublime Text for changes to the pgcli paths to take effect.
-
-NOTE: ["Python 3.3.x has reached end-of-life."](https://www.python.org/downloads/release/python-337/)!!!  
-So, newer versions of the libraries (psycopg-2.8.5+, pgcli-3.0.0+, ...) no longer 
-support Python 3.3.  
-I have fixed incompatible code (multiple syntax errors and 
-[psycopg requires Python 3.4](https://github.com/psycopg/psycopg2/blob/master/psycopg/python.h#L38) 
-error) and built all dependensy libraries into egg-packages for Python 3.3.  
-So you can just unzip pgcli-sublime-site-packages.zip to C:\ or any other 
-directory.
 
 Next, specify your default database url in the ```pgcli_url``` setting. You can 
 leave this as ```postgresql://``` to default to your PGHOSTNAME, PGDATABASE, 
@@ -55,7 +46,7 @@ Finally, if you wish to enable a shortcut to open a pgcli command prompt,
 fill in the "pgcli_system_cmd". This will be OS-specific.
  
 ### Example configuration
-Here is the configuration I use in windows. I have one pgcli python 3.3 virtual
+Here is the configuration I use in windows. I have one pgcli python 3.8 virtual
 environment called pgcli3. Because there's currently issues with 
 python-prompt-toolkit in windows with python 3, I have a second pgcli python
 2.7 virtual environment called pgcli2 that I use to run the command prompt.
@@ -67,23 +58,19 @@ python-prompt-toolkit in windows with python 3, I have a second pgcli python
    
    // List of python directories to add to python path so pgcli can be imported
    "pgcli_dirs": 					[
-      "C:\\pgcli-sublime-site-packages\\pgcli-3.0.0-py3.3.egg",
-        "C:\\pgcli-sublime-site-packages\\pgspecial-1.11.10-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\click-7.1.2-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\sqlparse-0.3.1-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\psycopg2-2.8.5-py3.3-win-amd64.egg",
-        "C:\\pgcli-sublime-site-packages\\humanize-0.5.1-py3.3.egg",
-        "C:\\pgcli-sublime-site-packages\\cli_helpers-2.0.0-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\tabulate-0.8.7-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\terminaltables-3.1.0-py3.3.egg",
-        "C:\\pgcli-sublime-site-packages\\prompt_toolkit-2.0.10-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\six-1.15.0-py3.3.egg",
-          "C:\\pgcli-sublime-site-packages\\wcwidth-0.2.5-py3.3.egg",
-        "C:\\pgcli-sublime-site-packages\\configobj-5.0.6-py3.3.egg",
+      // path to python3.8 site-packages, examples:
+      // Windows:
+      "C:\\Users\\<username>\\AppData\\Local\\Programs\\Python\\Python39\\lib\\site-packages",
+      // Linux:
+      "/usr/local/lib64/python3.8/site-packages/"
+      // macOS:
+      "/Library/Frameworks/Python.framework/Versions/3.8/lib/python3.8/site-packages/"
+      // or if you use venv (recomended):
+      "<venv_path>/lib/python3.8/site-packages/"
    ],
    
    // List of python site directories to add to python path so pgcli can be imported
-   "pgcli_site_dirs": 				["C:\\Users\\dg\\Anaconda3\\envs\\pgcli3\\Lib\\site-packages"],
+   "pgcli_site_dirs": 				[],
    
    // The path to the postgresql database. This may also be overridden in project-specific settings
    "pgcli_url": 					"postgresql://postgres@localhost/test",
