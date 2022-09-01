@@ -591,7 +591,7 @@ def new_executor(url):
     database = uri.path[1:]  # ignore the leading fwd slash
     dsn = None  # todo: what is this for again
     return PGExecute(database, uri.username, uri.password, uri.hostname,
-                     uri.port, dsn)
+                     uri.port, dsn, connect_timeout=10)
 
 def run_sqls_async(view, sqls):
     panel = get_output_panel(view)
