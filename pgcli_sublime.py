@@ -508,6 +508,7 @@ def check_pgcli(view):
         view.set_status('pgcli', '')
         return
 
+    error = None
     with executor_lock:
         view_id = view.id()
         if view_id not in executors:
@@ -525,7 +526,8 @@ def check_pgcli(view):
                     executor = new_executor(url)
                     view.set_status('pgcli', pgcli_id(executor))
                     executors[view_id] = executor
-                except Exception:
+                except Exception as e:
+                    error = e
                     logger.error('Error connecting to pgcli')
                     logger.error('traceback: %s', traceback.format_exc())
                     executor = None
@@ -542,6 +544,7 @@ def check_pgcli(view):
                     refresher = CompletionRefresher()
                     refresher.refresh(executor, special=special, callbacks=(
                         lambda c: swap_completer(c, url)))
+    return error
 
 
 def swap_completer(new_completer, url):
@@ -597,12 +600,19 @@ def run_sqls_async(view, sqls):
 
 
 def run_sql_async(view, sql, panel):
+    # Make sure the output panel is visiblle
+    sublime.active_window().run_command('pgcli_show_output_panel')
+    if view.id() not in executors:
+        out = 'connection closed, trying reconnect ... '
+        panel.run_command('append', { 'characters': out, 'pos': 0 })
+        error = check_pgcli(view)
+        if error:
+            out = '%s: %s' % (error.__class__.__name__, error)
+            panel.run_command('append', { 'characters': out, 'pos': 0 })
+            return
     executor = executors[view.id()]
     logger.debug('Command: PgcliExecute: %r', sql)
     save_mode = get(view, 'pgcli_save_on_run_query_mode')
-
-    # Make sure the output panel is visiblle
-    sublime.active_window().run_command('pgcli_show_output_panel')
     start = time.time()
     results = executor.run(sql, pgspecial=special)
     settings = OutputSettings('psql', "", "", "NULL", False, None)
@@ -617,8 +627,13 @@ def run_sql_async(view, sql, panel):
             start = time.time()
     except psycopg2.DatabaseError as e:
         success = False
-        out = str(e) + '\n\n' + str(datetime.datetime.now()) + '\n\n'
+        out = 'DatabaseError: ' + str(e) + '\n\n' + str(datetime.datetime.now())
         panel.run_command('append', {'characters': out})
+    except psycopg2.InterfaceError as e:
+        success = False
+        out = 'InterfaceError: ' + str(e) + '\n\n' + str(datetime.datetime.now())
+        panel.run_command('append', {'characters': out})
+        del executors[view.id()]
     else:
         success = True
 
