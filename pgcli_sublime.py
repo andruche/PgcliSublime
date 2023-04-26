@@ -579,7 +579,7 @@ def pgcli_id(executor):
 
 
 def output_panel_name(view):
-    return '__pgcli__' + (view.file_name() or 'untitled')
+    return '__pgcli__' + str(view.id())
 
 
 def get_output_panel(view):
