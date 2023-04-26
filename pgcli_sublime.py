@@ -49,8 +49,9 @@ def plugin_loaded():
 
     global PGCli, need_completion_refresh, need_search_path_refresh
     global has_meta_cmd, has_change_path_cmd, has_change_db_cmd, OutputSettings
-    from pgcli.main import (PGCli, has_meta_cmd, has_change_path_cmd,
-        has_change_db_cmd, OutputSettings)
+    from pgcli.main import (
+        PGCli, has_meta_cmd, has_change_path_cmd, has_change_db_cmd, OutputSettings
+    )
 
     global PGExecute
     from pgcli.pgexecute import PGExecute
@@ -59,7 +60,7 @@ def plugin_loaded():
     from pgcli.pgcompleter import PGCompleter
 
     global special
-    from pgspecial import PGSpecial
+    from pgspecial.main import PGSpecial
     special = PGSpecial()
 
     global CompletionRefresher
@@ -149,8 +150,9 @@ class PgcliPlugin(sublime_plugin.EventListener):
                  for c in comps]
         logger.debug('Found completions: %r', comps)
 
-        return comps, (sublime.INHIBIT_WORD_COMPLETIONS
-                        | sublime.INHIBIT_EXPLICIT_COMPLETIONS)
+        return comps, (
+                sublime.INHIBIT_WORD_COMPLETIONS | sublime.INHIBIT_EXPLICIT_COMPLETIONS
+        )
 
 
 class PgcliSwitchConnectionStringCommand(sublime_plugin.TextCommand):
@@ -234,8 +236,8 @@ class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
                 return
             if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
                 out = 'no running commands for cancel\n'
-                out += 'but connection is "idle in trunsaction"!!!\n'
-                out += 'use commit/rollback for stop trunsaction\n\n'
+                out += 'but connection is "idle in transaction"!!!\n'
+                out += 'use commit/rollback for stop transaction\n\n'
                 panel.run_command('append', {'characters': out})
                 return
         out = 'no running commands for cancel\n\n'
@@ -258,7 +260,7 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
                     panel.run_command('append', {'characters': out})
                     return
                 if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
-                    out = 'connection in trunsaction; you need commit/rollback before\n\n'
+                    out = 'connection in transaction; you need commit/rollback before\n\n'
                     panel.run_command('append', {'characters': out})
                     return
                 del executors[self.view.id()]
@@ -315,7 +317,6 @@ class PgcliExplainCurrentCommand(sublime_plugin.TextCommand):
         return 'Run the current selection or line as a query'
 
     def run(self, edit):
-        #print ("teswt1")
         logger.debug('PgcliRunCurrentCommand')
         check_pgcli(self.view)
 
@@ -347,16 +348,16 @@ class PgcliDescribeTable(sublime_plugin.TextCommand):
         check_pgcli(self.view)
 
         def fix_region(reg):
-            if reg.size(): # User selected a table/function name
+            if reg.size():  # User selected a table/function name
                 word = self.view.substr(reg)
-                par = re.search('\(.*', word)
-                if par: # Strip opening parenthesis and what follows
+                par = re.search('\\(.*', word)
+                if par:  # Strip opening parenthesis and what follows
                     parlen = par.end() - par.start()
                     return sublime.Region(reg.begin(), reg.end() - parlen)
-            else: # Selection is just a cursor; expand to nearest word
+            else:  # Selection is just a cursor; expand to nearest word
                 reg = self.view.word(reg)
                 word = self.view.substr(reg)
-                if re.match('\(\)?[;,]?\n?', word):
+                if re.match('\\(\\)?[;,]?\n?', word):
                     # Cursor after (; step back
                     newpos = reg.end() - len(word)
                     return fix_region(sublime.Region(newpos, newpos))
@@ -375,9 +376,11 @@ class PgcliDescribeTable(sublime_plugin.TextCommand):
         is_func = lambda region: self.view.substr(region.end()) == '('
         tbls = ((self.view.substr(reg), is_func(reg)) for reg in sel)
         sqls = (('\\df+ ' if f else '\\d+ ') + n for n, f in tbls)
-        t = Thread(target=run_sqls_async,
-               args=(self.view, sqls),
-               name='run_sqls_async')
+        t = Thread(
+            target=run_sqls_async,
+            args=(self.view, sqls),
+            name='run_sqls_async'
+        )
         t.setDaemon(True)
         t.start()
 
@@ -388,8 +391,10 @@ class PgcliShowOutputPanelCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
         logger.debug('PgcliShowOutputPanelCommand')
-        sublime.active_window().run_command('show_panel',
-                {'panel': 'output.' + output_panel_name(self.view)})
+        sublime.active_window().run_command(
+            'show_panel',
+            {'panel': 'output.' + output_panel_name(self.view)}
+        )
 
 
 class PgcliOpenCliCommand(sublime_plugin.TextCommand):
@@ -435,11 +440,15 @@ class PgcliNewSublimeReplCommand(sublime_plugin.WindowCommand):
         else:
             url = settings.get('pgcli_url')
 
-        self.window.run_command('repl_open',
-              {'encoding': 'utf8',
-               'type': 'pgcli',
-               'syntax': 'Packages/SQL/SQL.tmLanguage',
-               'pgcli_url': url})
+        self.window.run_command(
+            'repl_open',
+            {
+                'encoding': 'utf8',
+                'type': 'pgcli',
+                'syntax': 'Packages/SQL/SQL.tmLanguage',
+                'pgcli_url': url
+            }
+        )
 
     def is_enabled(self):
         return SUBLIME_REPL_AVAIL
@@ -471,10 +480,10 @@ def get_current_query(view):
     # calculate cursor position in query
     query_cursor_pos = len(current_query) - (cum_len - cursor_pos)
 
-    return (current_query, query_cursor_pos)
+    return current_query, query_cursor_pos
+
 
 def init_logging():
-
     for h in logger.handlers:
         logger.removeHandler(h)
 
@@ -500,6 +509,7 @@ def is_sql(view):
         return 'sql' in syntax_file.lower()
     else:
         return False
+
 
 def check_pgcli(view):
     """Check if a pgcli connection for the view exists, or request one"""
@@ -593,6 +603,7 @@ def new_executor(url):
     return PGExecute(database, uri.username, uri.password, uri.hostname,
                      uri.port, dsn, connect_timeout=10)
 
+
 def run_sqls_async(view, sqls):
     panel = get_output_panel(view)
     for sql in sqls:
@@ -600,15 +611,15 @@ def run_sqls_async(view, sqls):
 
 
 def run_sql_async(view, sql, panel):
-    # Make sure the output panel is visiblle
+    # Make sure the output panel is visible
     sublime.active_window().run_command('pgcli_show_output_panel')
     if view.id() not in executors:
         out = 'connection closed, trying reconnect ... '
-        panel.run_command('append', { 'characters': out, 'pos': 0 })
+        panel.run_command('append', {'characters': out, 'pos': 0})
         error = check_pgcli(view)
         if error:
             out = '%s: %s' % (error.__class__.__name__, error)
-            panel.run_command('append', { 'characters': out, 'pos': 0 })
+            panel.run_command('append', {'characters': out, 'pos': 0})
             return
     executor = executors[view.id()]
     logger.debug('Command: PgcliExecute: %r', sql)
@@ -620,10 +631,10 @@ def run_sql_async(view, sql, panel):
         for (title, cur, headers, status, _, _, _) in results:
             status = None if status == 'SELECT 1' else status
             out = 'done in {:.6} ms\n'.format((time.time() - start) * 1000)
-            panel.run_command('append', { 'characters': out, 'pos': 0 })
+            panel.run_command('append', {'characters': out, 'pos': 0})
             fmt = format_output(title, cur, headers, status, settings)
             out = '\n'.join(fmt) + '\n\n'
-            panel.run_command('append', { 'characters': out})
+            panel.run_command('append', {'characters': out})
             start = time.time()
     except psycopg2.DatabaseError as e:
         success = False
@@ -642,7 +653,6 @@ def run_sql_async(view, sql, panel):
                  or (save_mode == 'success' and success))):
         view.run_command('save')
 
-
     # Refresh the table names and column names if necessary.
     if has_meta_cmd(sql):
         logger.debug('Need completions refresh')
@@ -659,4 +669,3 @@ def run_sql_async(view, sql, panel):
         with completer_lock:
             completers[url].set_search_path(executor.search_path())
             logger.debug('Search path: %r', completers[url].search_path)
-
