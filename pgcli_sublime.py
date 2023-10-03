@@ -221,7 +221,7 @@ class PgcliRunCurrentCommand(sublime_plugin.TextCommand):
 
 class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
     def description(self):
-        return 'Run the current selection on defined connection'
+        return 'Cancel running query'
 
     def run(self, edit):
         logger.debug('PgcliCancelExecuteCommand')
@@ -232,15 +232,34 @@ class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
             if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
                 executor.conn.cancel()
                 out = 'send cancel signal to server\n\n'
-                panel.run_command('append', {'characters': out})
-                return
-            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
+            elif executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
                 out = 'no running commands for cancel\n'
                 out += 'but connection is "idle in transaction"!!!\n'
                 out += 'use commit/rollback for stop transaction\n\n'
-                panel.run_command('append', {'characters': out})
-                return
-        out = 'no running commands for cancel\n\n'
+        else:
+            out = 'no running commands for cancel\n\n'
+        panel.run_command('append', {'characters': out})
+
+
+class PgcliCloseConnectionCommand(sublime_plugin.TextCommand):
+    def description(self):
+        return 'Close current connection'
+
+    def run(self, edit):
+        logger.debug('PgcliCloseConnectionCommand')
+        panel = get_output_panel(self.view)
+
+        executor = executors.get(self.view.id(), None)
+        if executor:
+            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
+                executor.conn.cancel()
+                time.sleep(0.2)
+            executor.conn.close()
+            del executors[self.view.id()]
+            self.view.set_status('pgcli', pgcli_id(executor) + '(closed)')
+            out = 'connection closed\n\n'
+        else:
+            out = 'no opened connection\n\n'
         panel.run_command('append', {'characters': out})
 
 
