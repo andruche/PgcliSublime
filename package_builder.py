@@ -37,4 +37,3 @@ with zipfile.ZipFile(package_name, mode='a',
     zf.write(os.path.join(d, 'pgcli_sublime_repl.py'),
              arcname='pgcli_sublime_repl.py')
 print(f'write to {package_name}')
-

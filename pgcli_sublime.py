@@ -372,8 +372,10 @@ class PgcliDescribeTable(sublime_plugin.TextCommand):
 
             return reg
 
+        def is_func(region):
+            return self.view.substr(region.end()) == '('
+
         sel = (fix_region(r) for r in self.view.sel())
-        is_func = lambda region: self.view.substr(region.end()) == '('
         tbls = ((self.view.substr(reg), is_func(reg)) for reg in sel)
         sqls = (('\\df+ ' if f else '\\d+ ') + n for n, f in tbls)
         t = Thread(
