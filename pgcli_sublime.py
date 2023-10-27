@@ -18,6 +18,9 @@ try:
 except ImportError:
     SUBLIME_REPL_AVAIL = False
 
+CLOSE_CONNECT_AFTER_IDLE_TIMEOUT = 30
+
+maintain_job = None
 completers = {}  # Dict mapping urls to pgcompleter objects
 completer_lock = Lock()
 
@@ -84,6 +87,15 @@ def plugin_loaded():
     global sqlparse
     import sqlparse
 
+    global maintain_job
+    maintain_job = Thread(
+        target=connection_maintain,
+        args=(),
+        name='connection_maintain'
+    )
+    maintain_job.setDaemon(True)
+    maintain_job.start()
+
 
 def plugin_unloaded():
     global MONITOR_URL_REQUESTS
@@ -96,6 +108,18 @@ def plugin_unloaded():
     url_requests = queue.Queue()
 
 
+def connection_maintain():
+    if CLOSE_CONNECT_AFTER_IDLE_TIMEOUT == -1:
+        return
+    while True:
+        time.sleep(5)
+        for view_id, e in list(executors.items()):
+            if e.conn.get_transaction_status() == ext.TRANSACTION_STATUS_IDLE:
+                if e.last_use + CLOSE_CONNECT_AFTER_IDLE_TIMEOUT < time.time():
+                    e.conn.close()
+                    del executors[view_id]
+
+
 class PgcliPlugin(sublime_plugin.EventListener):
     def on_close(self, view):
         executor = executors.pop(view.id(), None)
@@ -103,15 +127,13 @@ class PgcliPlugin(sublime_plugin.EventListener):
             executor.conn.close()
 
     def on_post_save_async(self, view):
-        check_pgcli(view)
+        refresh_status(view)
 
     def on_load_async(self, view):
-        check_pgcli(view)
+        refresh_status(view)
 
     def on_activated(self, view):
-        # This should be on_activated_async, but that's not called correctly
-        # on startup for some reason
-        sublime.set_timeout_async(lambda: check_pgcli(view), 0)
+        refresh_status(view)
 
     def on_query_completions(self, view, prefix, locations):
         for pattern in settings.get('autocomplete_exclusions', []):
@@ -256,7 +278,7 @@ class PgcliCloseConnectionCommand(sublime_plugin.TextCommand):
                 time.sleep(0.2)
             executor.conn.close()
             del executors[self.view.id()]
-            self.view.set_status('pgcli', pgcli_id(executor) + '(closed)')
+            refresh_status(view)
             out = 'connection closed\n\n'
         else:
             out = 'no opened connection\n\n'
@@ -536,7 +558,7 @@ def check_pgcli(view):
     """Check if a pgcli connection for the view exists, or request one"""
 
     if not is_sql(view):
-        view.set_status('pgcli', '')
+        refresh_status(view, '')
         return
 
     error = None
@@ -546,24 +568,24 @@ def check_pgcli(view):
             url = get(view, 'pgcli_url')
 
             if not url:
-                view.set_status('pgcli', '')
+                refresh_status(view)
                 logger.debug('Empty pgcli url %r', url)
             else:
                 # Make a new executor connection
-                view.set_status('pgcli', 'Connecting: ' + url)
+                refresh_status(view, 'Connecting: ' + url)
                 logger.debug('Connecting to %r', url)
 
                 try:
                     executor = new_executor(url)
-                    view.set_status('pgcli', pgcli_id(executor))
                     executors[view_id] = executor
+                    refresh_status(view)
                 except Exception as e:
                     error = e
                     logger.error('Error connecting to pgcli')
                     logger.error('traceback: %s', traceback.format_exc())
                     executor = None
                     status = 'ERROR CONNECTING TO {}'.format(url)
-                    view.set_status('pgcli', status)
+                    refresh_status(view, status)
 
                 # Make sure we have a completer for the corresponding url
                 with completer_lock:
@@ -576,6 +598,19 @@ def check_pgcli(view):
                     refresher.refresh(executor, special=special, callbacks=(
                         lambda c: swap_completer(c, url)))
     return error
+
+
+def refresh_status(view, status=None):
+    if status is None:
+        url = get(view, 'pgcli_url')
+        if not url:
+            status = ''
+        else:
+            user, _, host, _, dbname = parse_url(url)
+            status = f'{user}@{host}/{dbname}'
+            if view.id() not in executors:
+                status += ' (closed)'
+    view.set_status('pgcli', status)
 
 
 def swap_completer(new_completer, url):
@@ -592,11 +627,6 @@ def get(view, key):
 
 def get_entire_view_text(view):
     return view.substr(sublime.Region(0, view.size()))
-
-
-def pgcli_id(executor):
-    user, host, db = executor.user, executor.host, executor.dbname
-    return '{}@{}/{}'.format(user, host, db)
 
 
 def output_panel_name(view):
@@ -617,12 +647,18 @@ def format_results(results, table_format):
     return '\n\n'.join(out)
 
 
-def new_executor(url):
+def parse_url(url):
     uri = urlparse(url)
     database = uri.path[1:]  # ignore the leading fwd slash
+    return uri.username, uri.password, uri.hostname, uri.port, database
+
+
+def new_executor(url):
+    user, password, host, port, dbname = parse_url(url)
     dsn = None  # todo: what is this for again
-    return PGExecute(database, uri.username, uri.password, uri.hostname,
-                     uri.port, dsn, connect_timeout=10)
+    executor = PGExecute(dbname, user, password, host, port, dsn, connect_timeout=10)
+    executor.last_use = time.time()
+    return executor
 
 
 def run_sqls_async(view, sqls):
@@ -643,6 +679,7 @@ def run_sql_async(view, sql, panel):
             panel.run_command('append', {'characters': out, 'pos': 0})
             return
     executor = executors[view.id()]
+    executor.last_use = time.time()
     logger.debug('Command: PgcliExecute: %r', sql)
     save_mode = get(view, 'pgcli_save_on_run_query_mode')
     start = time.time()
