@@ -690,8 +690,11 @@ def run_sql_async(view, sql, panel):
             status = None if status == 'SELECT 1' else status
             out = 'done in {:.6} ms\n'.format((time.time() - start) * 1000)
             panel.run_command('append', {'characters': out, 'pos': 0})
-            fmt = format_output(title, cur, headers, status, settings)
-            out = '\n'.join(fmt) + '\n\n'
+            if headers and len(headers) == 1:
+                out = '\n' + '\n'.join(str(r[0]) for r in cur)
+            else:
+                fmt = format_output(title, cur, headers, status, settings)
+                out = '\n'.join(fmt) + '\n\n'
             panel.run_command('append', {'characters': out})
             start = time.time()
     except psycopg2.DatabaseError as e:
