@@ -332,6 +332,12 @@ class PgcliRunMacrosCommand(sublime_plugin.TextCommand):
         return 'Run the macros with current selection'
 
     def run(self, edit, macros):
+        def strip_query(query):
+            query = query.strip()
+            if query and query[-1] == ';':
+                query = query[:-1]
+            return query
+
         logger.debug('PgcliRunMacrosCommand')
         check_pgcli(self.view)
 
@@ -340,8 +346,16 @@ class PgcliRunMacrosCommand(sublime_plugin.TextCommand):
 
         # Note that there can be multiple selections
         sel = self.view.sel()
-        sql = [macros % self.view.substr(reg) for reg in sel]
+        selections = [strip_query(self.view.substr(reg))
+                      for reg in sel]
 
+        if selections == ['']:
+            # Nothing highlighted - find the current query
+            sql, _ = get_current_query(self.view)
+            selections = [strip_query(sql)]
+
+        sql = [macros.format(selection=selection)
+               for selection in selections]
         if not sql:
             return
 
