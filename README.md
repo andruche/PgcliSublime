@@ -7,11 +7,24 @@ pgcli running in Python 3.8. (This is the version of python shipped with
 Sublime Text 4). I recommend installing pgcli in a virtual environment.
 
 ## Installation
+### Plugin
 ```
 $ git clone https://github.com/andruche/PgcliSublime.git
 $ cd PgcliSublime
 $ python3 package_builder.py
 $ mv PgcliSublime.sublime-package "<path to Installed Packages>/"
+```
+### Pgcli python module
+```
+$ python3.8 -m venv /Users/andrey/Library/ve_pgcli_sublime/
+$ source /Users/andrey/Library/ve_pgcli_sublime/bin/activate
+$ pip install pgcli==3.1.0
+```
+Add directory path into "Preferences | Package Settings | PgcliSublime | Settings - User"
+```
+{
+  "pgcli_dirs": ["/Users/andrey/Library/ve_pgcli_sublime/lib/python3.8/site-packages/"],
+}
 ```
 
 ### Optional
