@@ -705,7 +705,7 @@ def run_sql_async(view, sql, panel):
             out = 'done in {:.6} ms\n'.format((time.time() - start) * 1000)
             panel.run_command('append', {'characters': out, 'pos': 0})
             if headers and len(headers) == 1:
-                out = '\n' + '\n'.join(str(r[0]) for r in cur)
+                out = '\n' + '\n'.join(str(r[0]) for r in cur) + '\n\n'
             else:
                 fmt = format_output(title, cur, headers, status, settings)
                 out = '\n'.join(fmt) + '\n\n'
