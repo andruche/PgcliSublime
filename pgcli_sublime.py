@@ -252,8 +252,11 @@ class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
         executor = executors.get(self.view.id(), None)
         if executor:
             if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
-                executor.conn.cancel()
-                out = 'send cancel signal to server\n\n'
+                try:
+                    executor.conn.cancel()
+                    out = 'send cancel signal to server\n\n'
+                except Exception as e:
+                    out = 'Error: ' + str(e)
             elif executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
                 out = 'no running commands for cancel\n'
                 out += 'but connection is "idle in transaction"!!!\n'
