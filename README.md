@@ -175,6 +175,17 @@ Example for client settings:
         "context": [{"key": "selector", "operand": "source.sql"}]
     },
     {
+        "keys":    ["ctrl+shift+0"],
+        "command": "pgcli_run_current_on_multi",
+      "args": {
+        "urls": [
+            "postgresql://postgres@127.0.0.1:5432/test_db1",
+            "postgresql://postgres@127.0.0.1:5432/test_db2",
+            "postgresql://postgres@127.0.0.1:5432/test_db3",
+        ]
+        "context": [{"key": "selector", "operand": "source.sql"}]
+    },
+    {
         //get last 100 rows from <selected> table
         "keys":    ["alt+f1"],
         "command": "pgcli_run_macros",

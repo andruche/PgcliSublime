@@ -330,6 +330,45 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
         t.start()
 
 
+class PgcliRunCurrentOnMultiCommand(sublime_plugin.TextCommand):
+    def description(self):
+        return 'Run the current selection on defined connections'
+
+    def run(self, edit, urls):
+        logger.debug('PgcliRunCurrentOnCommand')
+        panel = get_output_panel(self.view)
+        original_url = get(self.view, 'pgcli_url')
+
+        executor = executors.get(self.view.id(), None)
+        if executor:
+            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
+                out = 'connection processing sql-command; you need cancel it before\n\n'
+                panel.run_command('append', {'characters': out})
+                return
+            if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_INTRANS:
+                out = 'connection in transaction; you need commit/rollback before\n\n'
+                panel.run_command('append', {'characters': out})
+                return
+            del executors[self.view.id()]
+            executor.conn.close()
+
+        # Note that there can be multiple selections
+        sel = self.view.sel()
+        contents = [self.view.substr(reg) for reg in sel]
+        sql = '\n'.join(contents)
+
+        if not sql and len(sel) == 1:
+            # Nothing highlighted - find the current query
+            sql, _ = get_current_query(self.view)
+
+        # Run the sql in a separate thread
+        t = Thread(target=run_sqls_on_multi_connections_async,
+                   args=(self.view, [sql], urls, original_url),
+                   name='run_sqls_on_multi_connections_async')
+        t.setDaemon(True)
+        t.start()
+
+
 class PgcliRunMacrosCommand(sublime_plugin.TextCommand):
     def description(self):
         return 'Run the macros with current selection'
@@ -682,6 +721,17 @@ def run_sqls_async(view, sqls):
     panel = get_output_panel(view)
     for sql in sqls:
         run_sql_async(view, sql, panel)
+
+
+def run_sqls_on_multi_connections_async(view, sqls, urls, original_url):
+    panel = get_output_panel(view)
+    for url in urls:
+        view.settings().set('pgcli_url', url)
+        check_pgcli(view)
+        for sql in sqls:
+            run_sql_async(view, sql, panel)
+    view.settings().set('pgcli_url', original_url)
+    check_pgcli(view)
 
 
 def run_sql_async(view, sql, panel):
