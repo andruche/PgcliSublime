@@ -122,9 +122,7 @@ def connection_maintain():
 
 class PgcliPlugin(sublime_plugin.EventListener):
     def on_close(self, view):
-        executor = executors.pop(view.id(), None)
-        if executor:
-            executor.conn.close()
+        close_connection(view.id())
 
     def on_post_save_async(self, view):
         refresh_status(view)
@@ -191,11 +189,8 @@ class PgcliSwitchConnectionStringCommand(sublime_plugin.TextCommand):
         def callback(i):
             if i == -1:
                 return
+            close_connection(self.view)
             self.view.settings().set('pgcli_url', urls[i])
-            executor = executors.pop(self.view.id(), None)
-            if executor:
-                executor.conn.close()
-
             check_pgcli(self.view)
 
         self.view.window().show_quick_panel(urls, callback)
@@ -261,8 +256,10 @@ class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
                 out = 'no running commands for cancel\n'
                 out += 'but connection is "idle in transaction"!!!\n'
                 out += 'use commit/rollback for stop transaction\n\n'
+            else:
+                out = 'no running commands for cancel\n\n'
         else:
-            out = 'no running commands for cancel\n\n'
+            out = 'connections closed\n\n'
         panel.run_command('append', {'characters': out})
 
 
@@ -279,9 +276,7 @@ class PgcliCloseConnectionCommand(sublime_plugin.TextCommand):
             if executor.conn.get_transaction_status() == ext.TRANSACTION_STATUS_ACTIVE:
                 executor.conn.cancel()
                 time.sleep(0.2)
-            executor.conn.close()
-            del executors[self.view.id()]
-            refresh_status(view)
+            close_connection(self.view)
             out = 'connection closed\n\n'
         else:
             out = 'no opened connection\n\n'
@@ -307,8 +302,7 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
                     out = 'connection in transaction; you need commit/rollback before\n\n'
                     panel.run_command('append', {'characters': out})
                     return
-                del executors[self.view.id()]
-                executor.conn.close()
+                close_connection(self.view)
             self.view.settings().set('pgcli_url', url)
 
         check_pgcli(self.view)
@@ -349,8 +343,6 @@ class PgcliRunCurrentOnMultiCommand(sublime_plugin.TextCommand):
                 out = 'connection in transaction; you need commit/rollback before\n\n'
                 panel.run_command('append', {'characters': out})
                 return
-            del executors[self.view.id()]
-            executor.conn.close()
 
         # Note that there can be multiple selections
         sel = self.view.sel()
@@ -656,6 +648,13 @@ def check_pgcli(view):
     return error
 
 
+def close_connection(view):
+    view_id = view.id()
+    if view_id in executors:
+        executor = executors.pop(view_id)
+        executor.conn.close()
+        refresh_status(view)
+
 def refresh_status(view, status=None):
     if status is None:
         url = get(view, 'pgcli_url')
@@ -726,10 +725,12 @@ def run_sqls_async(view, sqls):
 def run_sqls_on_multi_connections_async(view, sqls, urls, original_url):
     panel = get_output_panel(view)
     for url in urls:
+        close_connection(view)
         view.settings().set('pgcli_url', url)
         check_pgcli(view)
         for sql in sqls:
             run_sql_async(view, sql, panel)
+    close_connection(view)
     view.settings().set('pgcli_url', original_url)
     check_pgcli(view)
 
