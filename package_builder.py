@@ -14,8 +14,6 @@ with zipfile.ZipFile(package_name, mode='a',
                      compression=zipfile.ZIP_DEFLATED) as zf:
     zf.write(os.path.join(d, 'CHANGELOG.md'),
              arcname='CHANGELOG.md')
-    zf.write(os.path.join(d, '.python-version'),
-             arcname='.python-version')
     zf.write(os.path.join(d, 'Default (Linux).sublime-keymap'),
              arcname='Default (Linux).sublime-keymap')
     zf.write(os.path.join(d, 'Default (OSX).sublime-keymap'),
