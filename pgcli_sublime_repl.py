@@ -18,8 +18,8 @@ class SublimePgcliRepl(Repl):
         super(SublimePgcliRepl, self).__init__(encoding,
                                                additional_scopes=['sql'])
 
-        global Error, has_meta_cmd, has_change_db_cmd
-        from .pgcli_sublime import (PGCli, Error, has_meta_cmd,
+        global psycopg, has_meta_cmd, has_change_db_cmd
+        from .pgcli_sublime import (PGCli, psycopg, has_meta_cmd,
                                     has_change_db_cmd)
         settings = sublime.load_settings('PgcliSublime.sublime_settings')
         pgclirc = settings.get('pgclirc')
@@ -67,9 +67,8 @@ class SublimePgcliRepl(Repl):
             results = self.pgcli.pgexecute.run(self._query,
                                                pgspecial=self.pgcli.pgspecial)
             results = format_results(results, self.pgcli.table_format)
-        except Error as e:
-            # psycopg2 has pgerror; psycopg 3 puts the text in str(e).
-            results = getattr(e, 'pgerror', None) or str(e)
+        except psycopg.Error as e:
+            results = str(e)
         finally:
             self.check_refresh()
             self._query = None

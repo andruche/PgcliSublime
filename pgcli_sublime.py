@@ -32,36 +32,17 @@ recent_urls = []
 
 logger = logging.getLogger('pgcli_sublime')
 
-# libpq PQtransactionStatus. Same values in psycopg2 and psycopg 3.
-TRANSACTION_STATUS_IDLE = 0
-TRANSACTION_STATUS_ACTIVE = 1
-TRANSACTION_STATUS_INTRANS = 2
-
-psycopg = None
-psycopg2 = None
-DatabaseError = ()
-InterfaceError = ()
-Error = ()
-
 
 def transaction_status(conn):
-    """Transaction status for a psycopg 3 or psycopg2 connection.
-
-    psycopg 3 (pgcli >= 4) exposes it as conn.info.transaction_status.
-    psycopg2 exposes it as conn.get_transaction_status().
-    """
-    info = getattr(conn, 'info', None)
-    status = getattr(info, 'transaction_status', None)
-    if status is not None:
-        return status
-    return conn.get_transaction_status()
+    return conn.info.transaction_status
 
 
 def make_output_settings(table_format='psql'):
-    """OutputSettings for pgcli 3 and 4.
+    """Build pgcli OutputSettings.
 
-    pgcli 4 inserted column_date_formats before missingval, so the old
-    positional call put the NULL marker in the wrong field.
+    column_date_formats sits before missingval, so these fields are passed
+    by name. A format name string is wrapped; an OutputSettings value is
+    returned as-is.
     """
     if hasattr(table_format, 'missingval'):
         return table_format
@@ -120,35 +101,9 @@ def plugin_loaded():
     global format_output
     from pgcli.main import format_output
 
-    global psycopg, psycopg2, DatabaseError, InterfaceError, Error
-    psycopg = None
-    psycopg2 = None
-    try:
-        import psycopg as _psycopg
-        psycopg = _psycopg
-    except ImportError:
-        pass
-    try:
-        import psycopg2 as _psycopg2
-        psycopg2 = _psycopg2
-    except ImportError:
-        pass
-    if psycopg is None and psycopg2 is None:
-        raise ImportError(
-            'PgcliSublime needs psycopg (pgcli 4) or psycopg2 (pgcli 3)'
-        )
-
-    def _exception_types(name):
-        return tuple(
-            getattr(mod, name)
-            for mod in (psycopg, psycopg2)
-            if mod is not None
-        )
-
-    # Tuples so `except DatabaseError` matches whichever driver pgcli uses.
-    DatabaseError = _exception_types('DatabaseError')
-    InterfaceError = _exception_types('InterfaceError')
-    Error = _exception_types('Error')
+    global psycopg, TransactionStatus
+    import psycopg
+    from psycopg.pq import TransactionStatus
 
     global sqlparse
     import sqlparse
@@ -181,7 +136,7 @@ def connection_maintain():
         time.sleep(5)
         for view_id, e in list(executors.items()):
             try:
-                idle = transaction_status(e.conn) == TRANSACTION_STATUS_IDLE
+                idle = transaction_status(e.conn) == TransactionStatus.IDLE
             except Exception as exc:
                 # A dead connection must not kill this thread.
                 logger.warning(
@@ -330,13 +285,13 @@ class PgcliCancelExecuteCommand(sublime_plugin.TextCommand):
 
         executor = executors.get(self.view.id(), None)
         if executor:
-            if transaction_status(executor.conn) == TRANSACTION_STATUS_ACTIVE:
+            if transaction_status(executor.conn) == TransactionStatus.ACTIVE:
                 try:
                     executor.conn.cancel()
                     out = 'send cancel signal to server\n\n'
                 except Exception as e:
                     out = 'Error: ' + str(e)
-            elif transaction_status(executor.conn) == TRANSACTION_STATUS_INTRANS:
+            elif transaction_status(executor.conn) == TransactionStatus.INTRANS:
                 out = 'no running commands for cancel\n'
                 out += 'but connection is "idle in transaction"!!!\n'
                 out += 'use commit/rollback for stop transaction\n\n'
@@ -357,7 +312,7 @@ class PgcliCloseConnectionCommand(sublime_plugin.TextCommand):
 
         executor = executors.get(self.view.id(), None)
         if executor:
-            if transaction_status(executor.conn) == TRANSACTION_STATUS_ACTIVE:
+            if transaction_status(executor.conn) == TransactionStatus.ACTIVE:
                 executor.conn.cancel()
                 time.sleep(0.2)
             close_connection(self.view)
@@ -378,11 +333,11 @@ class PgcliRunCurrentOnCommand(sublime_plugin.TextCommand):
         if get(self.view, 'pgcli_url') != url:
             executor = executors.get(self.view.id(), None)
             if executor:
-                if transaction_status(executor.conn) == TRANSACTION_STATUS_ACTIVE:
+                if transaction_status(executor.conn) == TransactionStatus.ACTIVE:
                     out = 'connection processing sql-command; you need cancel it before\n\n'
                     panel.run_command('append', {'characters': out})
                     return
-                if transaction_status(executor.conn) == TRANSACTION_STATUS_INTRANS:
+                if transaction_status(executor.conn) == TransactionStatus.INTRANS:
                     out = 'connection in transaction; you need commit/rollback before\n\n'
                     panel.run_command('append', {'characters': out})
                     return
@@ -419,11 +374,11 @@ class PgcliRunCurrentOnMultiCommand(sublime_plugin.TextCommand):
 
         executor = executors.get(self.view.id(), None)
         if executor:
-            if transaction_status(executor.conn) == TRANSACTION_STATUS_ACTIVE:
+            if transaction_status(executor.conn) == TransactionStatus.ACTIVE:
                 out = 'connection processing sql-command; you need cancel it before\n\n'
                 panel.run_command('append', {'characters': out})
                 return
-            if transaction_status(executor.conn) == TRANSACTION_STATUS_INTRANS:
+            if transaction_status(executor.conn) == TransactionStatus.INTRANS:
                 out = 'connection in transaction; you need commit/rollback before\n\n'
                 panel.run_command('append', {'characters': out})
                 return
@@ -851,11 +806,11 @@ def run_sql_async(view, sql, panel):
                 out = '\n'.join(fmt) + '\n\n'
             panel.run_command('append', {'characters': out})
             start = time.time()
-    except DatabaseError as e:
+    except psycopg.DatabaseError as e:
         success = False
         out = 'DatabaseError: ' + str(e) + '\n\n' + str(datetime.datetime.now())
         panel.run_command('append', {'characters': out})
-    except InterfaceError as e:
+    except psycopg.InterfaceError as e:
         success = False
         out = 'InterfaceError: ' + str(e) + '\n\n' + str(datetime.datetime.now())
         panel.run_command('append', {'characters': out})
